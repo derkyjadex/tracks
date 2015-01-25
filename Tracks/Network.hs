@@ -13,6 +13,7 @@ module Tracks.Network (
     , getLineStations
     , getLineSections
     , getAdjacentStations
+    , getAdjacentStationsOnLine
 
     , addStation
     , addLine
@@ -29,7 +30,6 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Control.Monad.State
 
 data Station = Station String deriving (Show, Ord, Eq)
 
@@ -37,13 +37,12 @@ data Line = Line String deriving (Show, Ord, Eq)
 
 data Section = Section Station Station deriving (Show, Ord, Eq)
 
-data Network = Network {
-             stations :: Map String Station,
-             trackLines :: Map String Line,
-             stationLines :: Map Station (Set Line),
-             lineStations :: Map Line (Set Station),
-             lineSections :: Map Line (Set Section)
-             }
+data Network = Network { stations :: Map String Station
+                       , trackLines :: Map String Line
+                       , stationLines :: Map Station (Set Line)
+                       , lineStations :: Map Line (Set Station)
+                       , lineSections :: Map Line (Set Section)
+                       }
 
 instance Show Network where
     show Network { lineStations } =
@@ -54,12 +53,11 @@ instance Show Network where
 
 
 empty :: Network
-empty = Network {
-                stations = Map.empty,
-                trackLines = Map.empty,
-                stationLines = Map.empty,
-                lineStations = Map.empty,
-                lineSections = Map.empty
+empty = Network { stations = Map.empty
+                , trackLines = Map.empty
+                , stationLines = Map.empty
+                , lineStations = Map.empty
+                , lineSections = Map.empty
                 }
 
 getStations :: Network -> [Station]
@@ -86,16 +84,20 @@ getLineSections Network { lineSections } line =
             Just sections -> Set.elems sections
             Nothing       -> []
 
+getAdjacentStationsOnLine :: Network -> Station -> Line -> [Station]
+getAdjacentStationsOnLine network station line =
+        let sections = filter hasStation $ getLineSections network line
+         in fmap otherStation sections
+        where hasStation (Section a b) = a == station || b == station
+              otherStation (Section a b) =
+                if a == station then b else a
+
 getAdjacentStations :: Network -> Station -> [(Line, Station)]
 getAdjacentStations network station =
         let lines = getStationLines network station
          in concatMap lineRoutes lines
-        where lineRoutes line = fmap (toRoute line) $ getSections line
-              getSections line = filter hasStation $ getLineSections network line
-              hasStation (Section a b) = a == station || b == station
-              toRoute line section = (line, otherStation section)
-              otherStation (Section a b) =
-                if a == station then b else a
+        where lineRoutes line = zip (repeat line) $ getStations line
+              getStations = getAdjacentStationsOnLine network station
 
 addStation :: Network -> String -> (Station, Network)
 addStation network@Network { stations, stationLines } name =
