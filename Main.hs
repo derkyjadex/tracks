@@ -1,6 +1,6 @@
 module Main where
 
-import Tracks
+import Tracks.Network
 
 getTube :: IO Network
 getTube = readTracksFile "tube.tracks"

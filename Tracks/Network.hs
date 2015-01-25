@@ -1,6 +1,28 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Tracks where
+module Tracks.Network (
+      Station(..)
+    , Line(..)
+    , Section(..)
+
+    , Network
+    , empty
+    , getStations
+    , getLines
+    , getStationLines
+    , getLineStations
+    , getLineSections
+    , getAdjacentStations
+
+    , addStation
+    , addLine
+    , addSection
+    , addRun
+    , addRunByStrings
+
+    , readTracksFile
+    , readTracksCommands
+    ) where
 
 import Data.List.Split
 import Data.Map.Strict (Map)
@@ -17,7 +39,7 @@ data Section = Section Station Station deriving (Show, Ord, Eq)
 
 data Network = Network {
              stations :: Map String Station,
-             lines :: Map String Line,
+             trackLines :: Map String Line,
              stationLines :: Map Station (Set Line),
              lineStations :: Map Line (Set Station),
              lineSections :: Map Line (Set Section)
@@ -34,7 +56,7 @@ instance Show Network where
 empty :: Network
 empty = Network {
                 stations = Map.empty,
-                Tracks.lines = Map.empty,
+                trackLines = Map.empty,
                 stationLines = Map.empty,
                 lineStations = Map.empty,
                 lineSections = Map.empty
@@ -44,22 +66,36 @@ getStations :: Network -> [Station]
 getStations Network { stations } = Map.elems stations
 
 getLines :: Network -> [Line]
-getLines Network { Tracks.lines } = Map.elems lines
+getLines Network { trackLines } = Map.elems trackLines
 
-getStationLines :: Network -> Station -> Maybe [Line]
-getStationLines Network { stationLines } station = do
-        lines <- Map.lookup station stationLines
-        return $ Set.elems lines
+getStationLines :: Network -> Station -> [Line]
+getStationLines Network { stationLines } station =
+        case Map.lookup station stationLines of
+            Just lines -> Set.elems lines
+            Nothing    -> []
 
-getLineStations :: Network -> Line -> Maybe [Station]
-getLineStations Network { lineStations } line = do
-        stations <- Map.lookup line lineStations
-        return $ Set.elems stations
+getLineStations :: Network -> Line -> [Station]
+getLineStations Network { lineStations } line =
+        case Map.lookup line lineStations of
+            Just stations -> Set.elems stations
+            Nothing       -> []
 
-getLineSections :: Network -> Line -> Maybe [Section]
-getLineSections Network { lineSections } line = do
-        sections <- Map.lookup line lineSections
-        return $ Set.elems sections
+getLineSections :: Network -> Line -> [Section]
+getLineSections Network { lineSections } line =
+        case Map.lookup line lineSections of
+            Just sections -> Set.elems sections
+            Nothing       -> []
+
+getAdjacentStations :: Network -> Station -> [(Line, Station)]
+getAdjacentStations network station =
+        let lines = getStationLines network station
+         in concatMap lineRoutes lines
+        where lineRoutes line = fmap (toRoute line) $ getSections line
+              getSections line = filter hasStation $ getLineSections network line
+              hasStation (Section a b) = a == station || b == station
+              toRoute line section = (line, otherStation section)
+              otherStation (Section a b) =
+                if a == station then b else a
 
 addStation :: Network -> String -> (Station, Network)
 addStation network@Network { stations, stationLines } name =
@@ -71,10 +107,10 @@ addStation network@Network { stations, stationLines } name =
          in (station, network')
 
 addLine :: Network -> String -> (Line, Network)
-addLine network@Network { Tracks.lines, lineStations, lineSections } name =
+addLine network@Network { trackLines, lineStations, lineSections } name =
         let line = Line name
             network' = network {
-                               Tracks.lines = Map.insert name line lines,
+                               trackLines = Map.insert name line trackLines,
                                lineStations = Map.insert line Set.empty lineStations,
                                lineSections = Map.insert line Set.empty lineSections
                                }
