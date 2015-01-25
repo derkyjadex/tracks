@@ -25,4 +25,6 @@ main = do
         services <- getTubeServices
         print tube
         print services
+        let v1 = getLineService services victoria 1
+        print $ isServiceValid tube victoria v1
 

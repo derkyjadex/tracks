@@ -6,6 +6,9 @@ module Tracks.Service (
     , getLineServices
     , getLineService
 
+    , invalidSteps
+    , isServiceValid
+
     , addService
 
     , readServicesFile
@@ -56,6 +59,21 @@ addService (Services lines) line service =
             services' = Map.insert id service services
             lines' = Map.insert line services' lines
          in (id, Services lines')
+
+invalidSteps :: Network -> Line -> [Station] -> [(Station, Station)]
+invalidSteps _ _ [] = []
+invalidSteps _ _ [s] = [(s, s)]
+invalidSteps network line stations@(start:rest) =
+        let steps = (last stations, start) : zip stations rest
+         in filter invalid steps
+        where invalid (a, b) =
+                not $ elem b $ getAdjacentStationsOnLine network a line
+
+isServiceValid :: Network -> Line -> [Station] -> Bool
+isServiceValid _ _ [] = False
+isServiceValid _ _ [_] = False
+isServiceValid network line stations =
+        null $ invalidSteps network line stations
 
 data ReadState = ReadState Services (Maybe Line)
 
