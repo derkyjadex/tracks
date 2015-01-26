@@ -2,29 +2,46 @@ module Main where
 
 import Tracks.Network
 import Tracks.Service
+import Tracks.Train
 
-getTube :: IO Network
-getTube = readTracksFile "tube.tracks"
+foxhole, riverford, tunwall, maccton, welbridge :: Station
+foxhole = Station "Foxhole"
+riverford = Station "Riverford"
+tunwall = Station "Tunwall"
+maccton = Station "Maccton"
+welbridge = Station "Welbridge"
 
-getTubeServices :: IO Services
-getTubeServices = readServicesFile "tube.services"
+foxLine, newLine :: Line
+foxLine = Line "Fox"
+newLine = Line "New"
 
-earlsCourt, euston :: Station
-earlsCourt = Station "Earl's Court"
-euston = Station "Euston"
+network :: Network
+network =
+        let a = Tracks.Network.empty
+            (_, b) = addLine a "Fox"
+            (_, c) = addLine b "New"
+            d = addRun c foxLine [foxhole, riverford, tunwall]
+            e = addRun d newLine [maccton, riverford, welbridge]
+         in e
 
-district, piccadilly, victoria, northern :: Line
-district = Line "District Line"
-piccadilly = Line "Piccadilly Line"
-victoria = Line "Victoria Line"
-northern = Line "Northern Line"
+services :: Services
+services =
+        let a = Tracks.Service.empty
+            (_, b) = addService a foxLine [foxhole, riverford, tunwall, riverford]
+            (_, c) = addService b newLine [maccton, riverford, welbridge, riverford]
+         in c
+
+signals :: Signals
+signals = clear network
+
+startService :: Services -> Signals -> Line -> Int -> Maybe (Signals, Train)
+startService services signals line id =
+        let stations = getLineService services line id
+         in startTrain signals line stations
 
 main :: IO ()
 main = do
-        tube <- getTube
-        services <- getTubeServices
-        print tube
-        print services
-        let v1 = getLineService services victoria 1
-        print $ isServiceValid tube victoria v1
+        print network
+        print foxLine
+        print newLine
 
