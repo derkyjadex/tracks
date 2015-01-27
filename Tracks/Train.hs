@@ -20,6 +20,10 @@ data Signals = Signals { signalsNetwork :: Network
                        , occupiedStations :: Set (Line, Station)
                        }
 
+instance Show Train where
+        show Train { location, service } =
+            "@" ++ (show location) ++ " -> " ++ (show $ head service)
+
 clear :: Network -> Signals
 clear network = Signals { signalsNetwork = network
                         , occupiedSections = Set.empty
