@@ -62,7 +62,7 @@ leaveStation signals@Signals { occupiedSections, occupiedStations } train@Train 
                       occupiedSections' = Set.insert (line, station, next) occupiedSections
                       occupiedStations' = Set.delete (line, station) occupiedStations
                       signals' = signals { occupiedSections = occupiedSections'
-                                         , occupiedStations = occupiedStations
+                                         , occupiedStations = occupiedStations'
                                          }
                    in Just(signals', train')
     where (next:_) = service
