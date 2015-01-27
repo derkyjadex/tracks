@@ -66,3 +66,15 @@ leaveStation signals@Signals { occupiedSections, occupiedStations } train@Train 
                                          }
                    in Just(signals', train')
     where (next:_) = service
+
+stepTrain :: Signals -> Train -> (Signals, Train)
+stepTrain signals train@Train { location = AtStation _ _ } =
+        case leaveStation signals train of
+            Just result -> result
+            Nothing     -> (signals, train)
+
+stepTrain signals train@Train { location = BetweenStations _ _ _ } =
+        case enterStation signals train of
+            Just result -> result
+            Nothing     -> (signals, train)
+
