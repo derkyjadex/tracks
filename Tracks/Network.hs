@@ -23,6 +23,7 @@ module Tracks.Network (
 
     , readTracksFile
     , readTracksCommands
+    , writeTracksCommands
     ) where
 
 import Data.List.Split
@@ -181,3 +182,17 @@ readTrackCommand (ReadState _ Nothing) ('+':_) =
 readTrackCommand (ReadState network _) lineName =
         let (line, network') = addLine network lineName
          in ReadState network' (Just line)
+
+writeTracksFile :: FilePath -> Network -> IO ()
+writeTracksFile path network =
+        writeFile path $ writeTracksCommands network
+
+writeTracksCommands :: Network -> String
+writeTracksCommands network =
+        unlines $ concatMap writeLine $ getLines network
+        where writeLine line@(Line lineName) =
+                lineName : (writeLineSections $ getLineSections network line)
+              writeLineSections ((Section (Station a) (Station b)):rest) =
+                  ("+" ++ a ++ "," ++ b) : writeLineSections rest
+              writeLineSections [] = [""]
+
