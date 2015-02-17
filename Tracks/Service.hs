@@ -20,60 +20,60 @@ import Data.List
 import Data.List.Split
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
+import Control.Applicative
 
 data Services = Services (Map Line (Map Int [Station]))
 
 instance Show Services where
-        show (Services lines) =
-            unlines $ fmap showLine $ Map.assocs lines
-            where showLine ((Line name), services) =
-                    let servicesInfo = intercalate ", " $ fmap showService $ Map.assocs services
+        show (Services ls) =
+            unlines $ showLine <$> Map.assocs ls
+            where showLine (Line name, services) =
+                    let servicesInfo = intercalate ", " $ showService <$> Map.assocs services
                      in name ++ " (" ++ servicesInfo ++ ")"
-                  showService (id, stations) =
-                      (show id) ++ "-" ++ (show $ length stations)
+                  showService (num, stations) =
+                      show num ++ "-" ++ show (length stations)
 
 
 empty :: Services
 empty = Services Map.empty
 
-getLineServices :: Services -> Line -> [Int]
-getLineServices (Services lines) line =
-        case Map.lookup line lines of
+getLineServices :: Line -> Services -> [Int]
+getLineServices line (Services ls) =
+        case Map.lookup line ls of
             Just services -> Map.keys services
             Nothing     -> []
 
-getLineService :: Services -> Line -> Int -> [Station]
-getLineService (Services lines) line i =
-        case Map.lookup line lines of
-            Just services -> case Map.lookup i services of
-                               Just service -> service
-                               Nothing    -> []
-            Nothing     -> []
+getLineService :: Int -> Line -> Services -> [Station]
+getLineService num line (Services ls) =
+        case Map.lookup line ls of
+            Just services -> fromMaybe [] (Map.lookup num services)
+            Nothing       -> []
 
-addService :: Services -> Line -> [Station] -> (Int, Services)
-addService (Services lines) line service =
-        let (services, id) = case Map.lookup line lines of
-                               Just services -> let (id, _) = Map.findMax services
-                                               in (services, id)
+addService :: [Station] -> Line -> Services -> (Int, Services)
+addService service line (Services ls) =
+        let (services, num) = case Map.lookup line ls of
+                               Just ss -> let (n, _) = Map.findMax ss
+                                          in (ss, n)
                                Nothing     -> (Map.empty, 1)
-            services' = Map.insert id service services
-            lines' = Map.insert line services' lines
-         in (id, Services lines')
+            services' = Map.insert num service services
+            ls' = Map.insert line services' ls
+         in (num, Services ls')
 
-invalidSteps :: Network -> Line -> [Station] -> [(Station, Station)]
-invalidSteps _ _ [] = []
-invalidSteps _ _ [s] = [(s, s)]
-invalidSteps network line stations@(start:rest) =
+invalidSteps :: [Station] -> Line -> Network -> [(Station, Station)]
+invalidSteps [] _ _ = []
+invalidSteps [s] _ _ = [(s, s)]
+invalidSteps stations@(start:rest) line network =
         let steps = (last stations, start) : zip stations rest
          in filter invalid steps
         where invalid (a, b) =
-                not $ elem b $ getAdjacentStationsOnLine network a line
+                notElem b $ getAdjacentStationsOnLine a line network
 
-isServiceValid :: Network -> Line -> [Station] -> Bool
-isServiceValid _ _ [] = False
-isServiceValid _ _ [_] = False
-isServiceValid network line stations =
-        null $ invalidSteps network line stations
+isServiceValid :: [Station] -> Line -> Network -> Bool
+isServiceValid [] _ _ = False
+isServiceValid [_] _ _ = False
+isServiceValid stations line network =
+        null $ invalidSteps stations line network
 
 data ReadState = ReadState Services (Maybe Line)
 
@@ -93,7 +93,7 @@ readServiceCommand :: ReadState -> String -> ReadState
 readServiceCommand (ReadState services (Just line)) ('+':service) =
         let names = splitOn "," service
             stations = fmap Station names
-            (_, services') = addService services line stations
+            (_, services') = addService stations line services
          in ReadState services' (Just line)
 
 readServiceCommand (ReadState _ Nothing) ('+':_) =

@@ -22,7 +22,7 @@ data Signals = Signals { signalsNetwork :: Network
 
 instance Show Train where
         show Train { location, service } =
-            "@" ++ (show location) ++ " -> " ++ (show $ head service)
+            "@" ++ show location ++ " -> " ++ show (head service)
 
 clear :: Network -> Signals
 clear network = Signals { signalsNetwork = network
@@ -33,13 +33,14 @@ clear network = Signals { signalsNetwork = network
 startTrain :: Signals -> Line -> [Station] -> Maybe (Signals, Train)
 startTrain signals@Signals { signalsNetwork, occupiedStations } line stations@(start:_)
     | Set.member (line, start) occupiedStations = Nothing
-    | not $ isServiceValid signalsNetwork line stations = Nothing
+    | not $ isServiceValid stations line signalsNetwork = Nothing
     | otherwise = let train = Train { location = AtStation start line
                                     , service = drop 1 $ cycle stations
                                     }
                       occupiedStations' = Set.insert (line, start) occupiedStations
                       signals' = signals { occupiedStations = occupiedStations' }
                    in Just (signals', train)
+startTrain _ _ [] = undefined
 
 enterStation :: Signals -> Train -> Maybe (Signals, Train)
 enterStation signals@Signals { occupiedSections, occupiedStations } train@Train { location = BetweenStations prev next line, service }
@@ -70,6 +71,7 @@ leaveStation signals@Signals { occupiedSections, occupiedStations } train@Train 
                                          }
                    in Just(signals', train')
     where (next:_) = service
+leaveStation _ _ = undefined
 
 stepTrain :: Signals -> Train -> (Signals, Train)
 stepTrain signals train@Train { location = AtStation _ _ } =

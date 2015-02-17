@@ -19,25 +19,25 @@ newLine = Line "New"
 network :: Network
 network =
         let a = Tracks.Network.empty
-            (_, b) = addLine a "Fox"
-            (_, c) = addLine b "New"
-            d = addRun c foxLine [foxhole, riverford, tunwall]
-            e = addRun d newLine [maccton, riverford, welbridge]
+            (_, b) = addLine "Fox" a
+            (_, c) = addLine "New" b
+            d = addRun [foxhole, riverford, tunwall] foxLine c
+            e = addRun [maccton, riverford, welbridge] newLine d
          in e
 
 services :: Services
 services =
         let a = Tracks.Service.empty
-            (_, b) = addService a foxLine [foxhole, riverford, tunwall, riverford]
-            (_, c) = addService b newLine [maccton, riverford, welbridge, riverford]
+            (_, b) = addService [foxhole, riverford, tunwall, riverford] foxLine a
+            (_, c) = addService [maccton, riverford, welbridge, riverford] newLine b
          in c
 
 signals :: Signals
 signals = clear network
 
 startService :: Services -> Signals -> Line -> Int -> Maybe (Signals, Train)
-startService services signals line id =
-        let stations = getLineService services line id
+startService services signals line num =
+        let stations = getLineService num line services
          in startTrain signals line stations
 
 main :: IO ()
@@ -45,11 +45,11 @@ main = do
         print network
         print foxLine
         print newLine
-        let service = getLineService services foxLine 1
-        print $ isServiceValid network foxLine service
+        let service = getLineService 1 foxLine services
+        print $ isServiceValid service foxLine network
         case startService services signals foxLine 1 of
             Just result -> do
-                runTrain result
+                _ <- runTrain result
                 return ()
             Nothing     -> print ":("
 
@@ -58,12 +58,12 @@ main2 = do
         network <- readTracksFile "tube.tracks"
         services <- readServicesFile "tube.services"
         let victoria = Line "Victoria Line"
-            service = getLineService services victoria 1
+            service = getLineService 1 victoria services
             signals = clear network
-        print $ isServiceValid network victoria service
+        print $ isServiceValid service victoria network
         case startService services signals victoria 1 of
             Just result -> do
-                runTrain result
+                _ <- runTrain result
                 return ()
             Nothing     -> print ":("
 
