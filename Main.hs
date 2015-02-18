@@ -2,8 +2,13 @@ module Main where
 
 import Tracks.Network
 import Tracks.Service
-import Tracks.Train
-import Control.Concurrent (threadDelay)
+import Tracks.Train (Train)
+import Tracks.Signals
+
+import Control.Monad.STM
+import Control.Concurrent
+import qualified STMContainers.Set as Set
+import System.Random
 
 foxhole, riverford, tunwall, maccton, welbridge :: Station
 foxhole = Station "Foxhole"
@@ -32,44 +37,33 @@ services =
             (_, c) = addService [maccton, riverford, welbridge, riverford] newLine b
          in c
 
-signals :: Signals
-signals = clear network
-
-startService :: Services -> Signals -> Line -> Int -> Maybe (Signals, Train)
-startService services signals line num =
-        let stations = getLineService num line services
-         in startTrain signals line stations
-
 main :: IO ()
 main = do
-        print network
-        print foxLine
-        print newLine
-        let service = getLineService 1 foxLine services
-        print $ isServiceValid service foxLine network
-        case startService services signals foxLine 1 of
-            Just result -> do
-                _ <- runTrain result
-                return ()
-            Nothing     -> print ":("
+        putStrLn $ writeTracksCommands network
+        signals <- atomically $ clear network
+        forkIO $ startTrain "001" foxLine 1 services signals
+        forkIO $ startTrain "002" foxLine 1 services signals
+        forkIO $ startTrain "A01" newLine 1 services signals
+        getLine
+        return ()
 
-main2 :: IO ()
-main2 = do
-        network <- readTracksFile "tube.tracks"
-        services <- readServicesFile "tube.services"
-        let victoria = Line "Victoria Line"
-            service = getLineService 1 victoria services
-            signals = clear network
-        print $ isServiceValid service victoria network
-        case startService services signals victoria 1 of
-            Just result -> do
-                _ <- runTrain result
-                return ()
-            Nothing     -> print ":("
+startTrain :: String -> Line -> Int -> Services -> Signals -> IO ()
+startTrain name line num services signals = do
+        let service = getLineService num line services
+        train <- atomically $ placeTrain name service line signals
+        case train of
+            Just t  -> do
+                print t
+                runTrain t signals
+            Nothing -> do
+                threadDelay (500 * 1000)
+                startTrain name line num services signals
 
-runTrain :: (Signals, Train) -> IO (Signals, Train)
-runTrain (signals, train) = do
-        print train
-        let (signals', train') = stepTrain signals train
-        threadDelay $ 300 * 1000
-        runTrain (signals', train')
+runTrain :: Train -> Signals -> IO ()
+runTrain train signals = do
+        train' <- atomically $ stepTrain train signals
+        print train'
+        gen <- newStdGen
+        let (delay, _) = randomR (200000, 500000) gen
+        threadDelay delay
+        runTrain train' signals

@@ -11,76 +11,12 @@ data TrainLocation = AtStation Station Line
                    | BetweenStations Station Station Line
                    deriving (Show, Ord, Eq)
 
-data Train = Train { location :: TrainLocation
+data Train = Train { trainName :: String
+                   , location :: TrainLocation
                    , service :: [Station]
                    }
 
-data Signals = Signals { signalsNetwork :: Network
-                       , occupiedSections :: Set (Line, Station, Station)
-                       , occupiedStations :: Set (Line, Station)
-                       }
-
 instance Show Train where
-        show Train { location, service } =
-            "@" ++ show location ++ " -> " ++ show (head service)
-
-clear :: Network -> Signals
-clear network = Signals { signalsNetwork = network
-                        , occupiedSections = Set.empty
-                        , occupiedStations = Set.empty
-                        }
-
-startTrain :: Signals -> Line -> [Station] -> Maybe (Signals, Train)
-startTrain signals@Signals { signalsNetwork, occupiedStations } line stations@(start:_)
-    | Set.member (line, start) occupiedStations = Nothing
-    | not $ isServiceValid stations line signalsNetwork = Nothing
-    | otherwise = let train = Train { location = AtStation start line
-                                    , service = drop 1 $ cycle stations
-                                    }
-                      occupiedStations' = Set.insert (line, start) occupiedStations
-                      signals' = signals { occupiedStations = occupiedStations' }
-                   in Just (signals', train)
-startTrain _ _ [] = undefined
-
-enterStation :: Signals -> Train -> Maybe (Signals, Train)
-enterStation signals@Signals { occupiedSections, occupiedStations } train@Train { location = BetweenStations prev next line, service }
-    | Set.member (line, next) occupiedStations = Nothing
-    | otherwise = let location' = AtStation next line
-                      service' = drop 1 service
-                      train' = train { location = location'
-                                     , service = service'
-                                     }
-                      occupiedSections' = Set.delete (line, next, prev) occupiedSections
-                      occupiedStations' = Set.insert (line, next) occupiedStations
-                      signals' = signals { occupiedStations = occupiedStations'
-                                         , occupiedSections = occupiedSections'
-                                         }
-                   in Just (signals', train')
-
-enterStation _ _ = Nothing
-
-leaveStation :: Signals -> Train -> Maybe (Signals, Train)
-leaveStation signals@Signals { occupiedSections, occupiedStations } train@Train { location = AtStation station line, service }
-    | Set.member (line, station, next) occupiedSections = Nothing
-    | otherwise = let location' = BetweenStations station next line
-                      train' = train { location = location' }
-                      occupiedSections' = Set.insert (line, station, next) occupiedSections
-                      occupiedStations' = Set.delete (line, station) occupiedStations
-                      signals' = signals { occupiedSections = occupiedSections'
-                                         , occupiedStations = occupiedStations'
-                                         }
-                   in Just(signals', train')
-    where (next:_) = service
-leaveStation _ _ = undefined
-
-stepTrain :: Signals -> Train -> (Signals, Train)
-stepTrain signals train@Train { location = AtStation _ _ } =
-        case leaveStation signals train of
-            Just result -> result
-            Nothing     -> (signals, train)
-
-stepTrain signals train@Train { location = BetweenStations _ _ _ } =
-        case enterStation signals train of
-            Just result -> result
-            Nothing     -> (signals, train)
+        show Train { trainName, location, service } =
+            trainName ++ "@" ++ show location ++ " -> " ++ show (head service)
 

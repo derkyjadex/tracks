@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Tracks.Network (
       Station(..)
@@ -34,12 +35,20 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Maybe (fromMaybe)
 import Control.Applicative
+import Data.Hashable
+import GHC.Generics
 
-data Station = Station String deriving (Show, Ord, Eq)
+data Station = Station String deriving (Show, Ord, Eq, Generic)
 
-data Line = Line String deriving (Show, Ord, Eq)
+instance Hashable Station
 
-data Section = Section Station Station deriving (Show, Ord, Eq)
+data Line = Line String deriving (Show, Ord, Eq, Generic)
+
+instance Hashable Line
+
+data Section = Section Station Station deriving (Show, Ord, Eq, Generic)
+
+instance Hashable Section
 
 data Network = Network { stations :: Map String Station
                        , trackLines :: Map String Line
