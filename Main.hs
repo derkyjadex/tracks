@@ -22,22 +22,10 @@ foxLine, newLine :: Line
 foxLine = Line "Fox"
 newLine = Line "New"
 
-network :: Network
-network =
-        let a = Tracks.Network.empty
-            b = addRun [foxhole, riverford, tunwall, welbridge] foxLine a
-            c = addRun [maccton, riverford, welbridge] newLine b
-         in c
-
-services :: Services
-services =
-        let a = Tracks.Service.empty
-            (_, b) = addService [foxhole, riverford, tunwall, riverford] foxLine a
-            (_, c) = addService [maccton, riverford, welbridge, riverford] newLine b
-         in c
-
 main :: IO ()
 main = do
+        network <- readTracksFile "test.tracks"
+        services <- readServicesFile "test.services"
         putStrLn $ writeTracksCommands network
         signals <- atomically Signals.clear
         forkIO $ startTrain "001" foxLine 1 services signals network
