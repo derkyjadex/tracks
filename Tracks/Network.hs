@@ -6,7 +6,7 @@ module Tracks.Network (
     , Line(..)
     , Section(..)
 
-    , Network
+    , Network(..)
     , Tracks.Network.empty
     , getStations
     , getLines
@@ -16,8 +16,6 @@ module Tracks.Network (
     , getAdjacentStations
     , getAdjacentStationsOnLine
 
-    , addStation
-    , addLine
     , addSection
     , addRun
     , addRunByStrings
@@ -50,9 +48,7 @@ data Section = Section Station Station deriving (Show, Ord, Eq, Generic)
 
 instance Hashable Section
 
-data Network = Network { stations :: Map String Station
-                       , trackLines :: Map String Line
-                       , stationLines :: Map Station (Set Line)
+data Network = Network { stationLines :: Map Station (Set Line)
                        , lineStations :: Map Line (Set Station)
                        , lineSections :: Map Line (Set Section)
                        }
@@ -66,18 +62,16 @@ instance Show Network where
 
 
 empty :: Network
-empty = Network { stations = Map.empty
-                , trackLines = Map.empty
-                , stationLines = Map.empty
+empty = Network { stationLines = Map.empty
                 , lineStations = Map.empty
                 , lineSections = Map.empty
                 }
 
 getStations :: Network -> [Station]
-getStations Network { stations } = Map.elems stations
+getStations Network { stationLines } = Map.keys stationLines
 
 getLines :: Network -> [Line]
-getLines Network { trackLines } = Map.elems trackLines
+getLines Network { lineStations } = Map.keys lineStations
 
 getStationLines :: Station -> Network -> [Line]
 getStationLines station Network { stationLines } =
@@ -112,33 +106,31 @@ getAdjacentStations station network =
         where lineRoutes line =
                 zip (repeat line) $ getAdjacentStationsOnLine station line network
 
-addStation :: String -> Network -> (Station, Network)
-addStation name network@Network { stations, stationLines } =
-        let station = Station name
-            network' = network { stations = Map.insert name station stations
-                               , stationLines = Map.insert station Set.empty stationLines
-                               }
-         in (station, network')
+addStation :: Station -> Network -> Network
+addStation station network@Network { stationLines } =
+        case Map.lookup station stationLines of
+            Just _ -> network
+            Nothing -> network { stationLines = Map.insert station Set.empty stationLines }
 
-addLine :: String -> Network -> (Line, Network)
-addLine name network@Network { trackLines, lineStations, lineSections } =
-        let line = Line name
-            network' = network { trackLines = Map.insert name line trackLines
-                               , lineStations = Map.insert line Set.empty lineStations
-                               , lineSections = Map.insert line Set.empty lineSections
-                               }
-         in (line, network')
+addLine :: Line -> Network -> Network
+addLine line network@Network { lineStations, lineSections } =
+        case Map.lookup line lineSections of
+            Just _ -> network
+            Nothing -> network { lineStations = Map.insert line Set.empty lineStations
+                              , lineSections = Map.insert line Set.empty lineSections
+                              }
 
 addSection :: Station -> Station -> Line -> Network -> Network
-addSection s1 s2 line network@Network { stationLines, lineStations, lineSections } =
+addSection s1 s2 line network =
         let section = Section s1 s2
-            stationLines' = updateSet s1 line $ updateSet s2 line stationLines
-            lineStations' = updateSet line s1 $ updateSet line s2 lineStations
-            lineSections' = updateSet line section lineSections
-         in network { stationLines = stationLines'
-                    , lineStations = lineStations'
-                    , lineSections = lineSections'
-                    }
+            network' = addLine line $ addStation s1 $ addStation s2 network
+            stationLines' = updateSet s1 line $ updateSet s2 line $ stationLines network'
+            lineStations' = updateSet line s1 $ updateSet line s2 $ lineStations network'
+            lineSections' = updateSet line section $ lineSections network'
+         in network' { stationLines = stationLines'
+                     , lineStations = lineStations'
+                     , lineSections = lineSections'
+                     }
         where updateSet k v m =
                   let set = fromMaybe undefined (Map.lookup k m)
                       set' = Set.insert v set
@@ -156,11 +148,9 @@ addRunByStrings names line network =
         let (stations, network') = mapStations ([], network) names
          in addRun stations line network'
       where mapStations result [] = result
-            mapStations (prevStations, n@Network { stations }) (name:rest) =
-                let (station, network') = case Map.lookup name stations of
-                                              Just s  -> (s, network)
-                                              Nothing -> addStation name n
-                 in mapStations (station:prevStations, network') rest
+            mapStations (prevStations, n) (name:rest) =
+                let station = Station name
+                 in mapStations (station:prevStations, network) rest
 
 
 data ReadState = ReadState Network (Maybe Line)
@@ -187,8 +177,8 @@ readTrackCommand (ReadState _ Nothing) ('+':_) =
         error "No Line to add run to"
 
 readTrackCommand (ReadState network _) lineName =
-        let (line, network') = addLine lineName network
-         in ReadState network' (Just line)
+        let line = Line lineName
+         in ReadState network (Just line)
 
 writeTracksFile :: FilePath -> Network -> IO ()
 writeTracksFile path network =

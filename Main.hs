@@ -25,11 +25,9 @@ newLine = Line "New"
 network :: Network
 network =
         let a = Tracks.Network.empty
-            (_, b) = addLine "Fox" a
-            (_, c) = addLine "New" b
-            d = addRun [foxhole, riverford, tunwall] foxLine c
-            e = addRun [maccton, riverford, welbridge] newLine d
-         in e
+            b = addRun [foxhole, riverford, tunwall, welbridge] foxLine a
+            c = addRun [maccton, riverford, welbridge] newLine b
+         in c
 
 services :: Services
 services =
